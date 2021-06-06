@@ -174,7 +174,7 @@ We can create MySQL tasks in the same way. However, for the MySQL tasks with tra
 
 ### What are the connection multiplexing rules?
 
-In most cases, you cannot specify specific connections for the client tasks generated in the framework. The framework defines the following multiplexing strategies for such connections:
+In most cases, you cannot specify specific connections for the client tasks generated in the framework. The framework defines the following multiplexing strategies for reusing connections:
 * If the idle connections on the same port meet the requirements, select the last released one. In other words, FILO is used for reusing idle connections.
 * If no idle connection on the same port that meets the requirements:
   * If the current number of concurrent connections is less than the maximum value (200 by default), start a new connection immediately.
@@ -185,7 +185,7 @@ Although our framework does not support to specify the connection to be used by 
 
 ### Is there load balancing if there are multiple IP addresses under the same domain name?
 
-Yes. In the framework, we think that all target IPs under the same domain name are equal and have the same service capabilities. Therefore, the framework will find a target with the lightest local load to handle the request, and it also has built-in fuse and recovery strategy. For load balancing under the same domain name, all targets must serve on the same port, and you cannot configure different weights. The priority of load balance is higher than connection multiplexing. In other words, the communication address will be selected first, and then the connection reuse will be considered.
+Yes. In the framework, we assume that all target IPs under the same domain name are equilvalent and have the same service capabilities. Therefore, the framework will choose a target IP with the lightest load known from local for the request, and it also has built-in fuse and recovery strategy. For load balancing under the same domain name, all targets must serve on the same port, and you cannot configure different weights. The load balance is prior to connection multiplexing. In other words, the communication address will be selected before the connection reuse being considered.
 
 ### How to realize load balancing or weighted selecting on different ports
 
@@ -193,7 +193,7 @@ Please read **Upstream** documentation. **Upstream** can be used to meet many co
 
 ### How to access chunked HTTP body most efficiently
 
-In many cases, we use **HttpMessage::get\_parsed\_body()** to get the HTTP body. However, to ensure efficiency, the framework does not automatically decode chunked message for users, but returns the original body instead. You can use **HttpChunkCursor** to decode the chunked message. For example:
+In many cases, we use **HttpMessage::get\_parsed\_body()** to get the HTTP body. However, to ensure efficiency, the framework does not automatically decode chunked message for users, but returns the original body instead. You can use **HttpChunkCursor** to decode the chunked message with zero copy. For example:
 
 ~~~cpp
 #include "workflow/HttpUtil.h"
@@ -212,7 +212,7 @@ void http_callback(WFHttpTask *task)
 }
 ~~~
 
-The **cursor.next** operation returns the pointer indicating the starting position and the chunk size of one chunk each time, and does not copy the memory. Before you use **HttpChunkCursor**, it is not necessary to check whether the message is chunked or not, because non-chunked message can also be handled as one chunk.
+The **cursor.next** operation returns the pointer indicating the starting position and the chunk size of one chunk each time, and does not copy the memory. Before you use **HttpChunkCursor**, it is not necessary to check whether the message is chunked encoded or not, because non-chunked message can also be handled as one chunk.
 
 ### Can I wait for the completion of a task synchronously in the callback or the process?
 
