@@ -69,7 +69,7 @@ public:
 	OUTPUT *get_output() { return &this->output; }
 
 public:
-	void *user_data;
+	void *user_data; // 直接暴露给用户
 
 public:
 	int get_state() const { return this->state; }

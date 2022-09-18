@@ -83,18 +83,20 @@ void Executor::executor_thread_routine(void *context)
 	entry = list_entry(queue->task_list.next, struct ExecTaskEntry, list);
 	list_del(&entry->list);
 	session = entry->session;
+	// 如果此时队列不为空，继续启动 threadpool 后台去取任务
 	if (!list_empty(&queue->task_list))
 	{
 		struct thrdpool_task task = {
 			.routine	=	Executor::executor_thread_routine,
 			.context	=	queue
 		};
+		// thrdpool_schedule 中分配了内存，此处复用entry的内存
 		__thrdpool_schedule(&task, entry, entry->thrdpool);
 	}
 	else
 		free(entry);
-
 	pthread_mutex_unlock(&queue->mutex);
+	// 执行当前的任务
 	session->execute();
 	session->handle(ES_STATE_FINISHED, 0);
 }
@@ -121,14 +123,16 @@ int Executor::request(ExecSession *session, ExecQueue *queue)
 {
 	struct ExecTaskEntry *entry;
 
-	session->queue = queue;
+	session->queue = queue; // 这个queue对象是private的
 	entry = (struct ExecTaskEntry *)malloc(sizeof (struct ExecTaskEntry));
 	if (entry)
 	{
 		entry->session = session;
 		entry->thrdpool = this->thrdpool;
+		// 将生成的 ExecTaskEntry 插入到队列中
 		pthread_mutex_lock(&queue->mutex);
 		list_add_tail(&entry->list, &queue->task_list);
+		// 第一个任务负责将线程池调度起来
 		if (queue->task_list.next == &entry->list)
 		{
 			struct thrdpool_task task = {

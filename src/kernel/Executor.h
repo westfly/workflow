@@ -51,7 +51,7 @@ private:
 protected:
 	ExecQueue *get_queue() { return this->queue; }
 
-private:
+// private:
 	ExecQueue *queue;
 
 public:

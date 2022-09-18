@@ -50,7 +50,8 @@ static void *__thrdpool_routine(void *arg)
 	void *task_context;
 	pthread_t tid;
 
-	pthread_setspecific(pool->key, pool);
+	pthread_setspecific(pool->key, pool); // 在释放中有用
+	// 消费者线程，有几个线程就有
 	while (!pool->terminate)
 	{
 		entry = (struct __thrdpool_task_entry *)msgqueue_get(pool->msgqueue);
@@ -59,7 +60,7 @@ static void *__thrdpool_routine(void *arg)
 
 		task_routine = entry->task.routine;
 		task_context = entry->task.context;
-		free(entry);
+		free(entry);	// 立即释放在 thrdpool_schedule 中分配的内存
 		task_routine(task_context);
 
 		if (pool->nthreads == 0)
@@ -78,6 +79,7 @@ static void *__thrdpool_routine(void *arg)
 		pthread_cond_signal(pool->terminate);
 
 	pthread_mutex_unlock(&pool->mutex);
+	// 由当前线程join上一个线程结束
 	if (memcmp(&tid, &__zero_tid, sizeof (pthread_t)) != 0)
 		pthread_join(tid, NULL);
 
@@ -86,6 +88,7 @@ static void *__thrdpool_routine(void *arg)
 
 static void __thrdpool_terminate(int in_pool, thrdpool_t *pool)
 {
+	// 后续有cond_wait，所以内存是合法的，不会先期退出
 	pthread_cond_t term = PTHREAD_COND_INITIALIZER;
 
 	pthread_mutex_lock(&pool->mutex);
@@ -184,14 +187,15 @@ inline void __thrdpool_schedule(const struct thrdpool_task *task, void *buf,
 void __thrdpool_schedule(const struct thrdpool_task *task, void *buf,
 						 thrdpool_t *pool)
 {
+	// 此处是拷贝，存储的只是两个函数指针，代价非常小
 	((struct __thrdpool_task_entry *)buf)->task = *task;
 	msgqueue_put(buf, pool->msgqueue);
 }
 
 int thrdpool_schedule(const struct thrdpool_task *task, thrdpool_t *pool)
 {
+	// 其实是生产者，向队列里面插入元素
 	void *buf = malloc(sizeof (struct __thrdpool_task_entry));
-
 	if (buf)
 	{
 		__thrdpool_schedule(task, buf, pool);

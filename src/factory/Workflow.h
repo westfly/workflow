@@ -179,8 +179,9 @@ Workflow::create_series_work(SubTask *first, series_callback_t callback)
 inline void
 Workflow::start_series_work(SubTask *first, series_callback_t callback)
 {
+	// memory leaking? @TODO
 	new SeriesWork(first, std::move(callback));
-	first->dispatch();
+	first->dispatch(); // call WFThreadTask->dispatch etc
 }
 
 inline SeriesWork *

@@ -582,6 +582,7 @@ static void __poller_handle_listen(struct __poller_node *node,
 	while (1)
 	{
 		len = sizeof (struct sockaddr_storage);
+		// accept建立连接
 		sockfd = accept(node->data.fd, (struct sockaddr *)&ss, &len);
 		if (sockfd < 0)
 		{
@@ -592,7 +593,7 @@ static void __poller_handle_listen(struct __poller_node *node,
 			else
 				break;
 		}
-
+		// 实际上调用 Communicator::accept
 		p = node->data.accept((const struct sockaddr *)&ss, len,
 							  sockfd, node->data.context);
 		if (!p)
@@ -602,8 +603,10 @@ static void __poller_handle_listen(struct __poller_node *node,
 		res->data.result = p;
 		res->error = 0;
 		res->state = PR_ST_SUCCESS;
+		// 调用 Communicator::callback, 将res 插入到mpmc队列中
+		// 最后由 Communicator::handler_thread_routine 进行处理
 		poller->cb((struct poller_result *)res, poller->ctx);
-
+		// 不是太理解这块 @TODO
 		res = (struct __poller_node *)malloc(sizeof (struct __poller_node));
 		node->res = res;
 		if (!res)
@@ -1154,6 +1157,7 @@ int poller_start(poller_t *poller)
 	pthread_mutex_lock(&poller->mutex);
 	if (__poller_open_pipe(poller) >= 0)
 	{
+		// 启动网络事件轮询线程
 		ret = pthread_create(&tid, NULL, __poller_thread_routine, poller);
 		if (ret == 0)
 		{

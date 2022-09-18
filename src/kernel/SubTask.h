@@ -78,7 +78,7 @@ public:
 	}
 
 public:
-	virtual void dispatch();
+	virtual void dispatch() override;
 
 protected:
 	SubTask **subtasks;

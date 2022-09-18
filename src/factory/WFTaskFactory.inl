@@ -676,7 +676,7 @@ template<class INPUT, class OUTPUT>
 class __WFThreadTask : public WFThreadTask<INPUT, OUTPUT>
 {
 protected:
-	virtual void execute()
+	virtual void execute() override
 	{
 		this->routine(&this->input, &this->output);
 	}
@@ -783,10 +783,17 @@ WFThreadTaskFactory<INPUT, OUTPUT>::create_thread_task(const std::string& queue_
 						std::function<void (INPUT *, OUTPUT *)> routine,
 						std::function<void (WFThreadTask<INPUT, OUTPUT> *)> callback)
 {
+	#if 0
 	return new __WFThreadTask<INPUT, OUTPUT>(WFGlobal::get_exec_queue(queue_name),
 											 WFGlobal::get_compute_executor(),
 											 std::move(routine),
 											 std::move(callback));
+	#else
+		return create_thread_task(WFGlobal::get_exec_queue(queue_name),
+								  WFGlobal::get_compute_executor(),
+								  std::move(routine),
+								  std::move(callback));
+	#endif
 }
 
 template<class INPUT, class OUTPUT>

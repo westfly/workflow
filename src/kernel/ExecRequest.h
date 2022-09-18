@@ -21,7 +21,7 @@
 
 #include "SubTask.h"
 #include "Executor.h"
-
+// ExecRequest未实现  ExecSession::handle 接口，无法实例化
 class ExecRequest : public SubTask, public ExecSession
 {
 public:
@@ -35,7 +35,8 @@ public:
 	void set_request_queue(ExecQueue *queue) { this->queue = queue; }
 
 public:
-	virtual void dispatch()
+	// impliment interface in SubTask
+	virtual void dispatch() override
 	{
 		if (this->executor->request(this, this->queue) < 0)
 			this->handle(ES_STATE_ERROR, errno);
@@ -46,11 +47,12 @@ protected:
 	int error;
 
 protected:
-	ExecQueue *queue;
+	// ExecQueue *queue; // 好像跟ExecSession中的重合了
 	Executor *executor;
 
 protected:
-	virtual void handle(int state, int error)
+	// impliment interface in ExecSession
+	virtual void handle(int state, int error) override
 	{
 		this->state = state;
 		this->error = error;

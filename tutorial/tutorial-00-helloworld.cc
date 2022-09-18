@@ -4,6 +4,7 @@
 int main()
 {
     WFHttpServer server([](WFHttpTask *task) {
+		printf("task_seq %lld\n", task->get_task_seq());
         task->get_resp()->append_output_body("<html>Hello World!</html>");
     });
 

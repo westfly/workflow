@@ -956,6 +956,7 @@ void Communicator::handle_listen_result(struct poller_result *res)
 				res->data.fd = entry->sockfd;
 				res->data.ssl = entry->ssl;
 				res->data.context = entry;
+				// read事件放进epoll进行监听，等着对方发消息
 				if (mpoller_add(&res->data, timeout, this->mpoller) >= 0)
 				{
 					if (this->stop_flag)
