@@ -26,7 +26,6 @@
 
 #include <string.h>
 #include <string>
-#include <atomic>
 #include "ProtocolMessage.h"
 #include "dns_parser.h"
 
@@ -153,6 +152,45 @@ public:
 		parser->question.qname = strdup(name.c_str());
 	}
 
+	int add_a_record(int section, const char *name,
+					 uint16_t rclass, uint32_t ttl,
+					 const void *data);
+
+	int add_aaaa_record(int section, const char *name,
+						uint16_t rclass, uint32_t ttl,
+						const void *data);
+
+	int add_ns_record(int section, const char *name,
+					  uint16_t rclass, uint32_t ttl,
+					  const char *data);
+
+	int add_cname_record(int section, const char *name,
+						 uint16_t rclass, uint32_t ttl,
+						 const char *data);
+
+	int add_ptr_record(int section, const char *name,
+					   uint16_t rclass, uint32_t ttl,
+					   const char *data);
+
+	int add_soa_record(int section, const char *name,
+					   uint16_t rclass, uint32_t ttl,
+					   const char *mname, const char *rname,
+					   uint32_t serial, int32_t refresh,
+					   int32_t retry, int32_t expire, uint32_t minimum);
+
+	int add_srv_record(int section, const char *name,
+					   uint16_t rclass, uint32_t ttl,
+					   uint16_t priority, uint16_t weight,
+					   uint16_t port, const char *target);
+
+	int add_mx_record(int section, const char *name,
+					  uint16_t rclass, uint32_t ttl,
+					  int16_t preference, const char *exchange);
+
+	int add_raw_record(int section, const char *name, uint16_t type,
+					   uint16_t rclass, uint32_t ttl,
+					   const void *data, uint16_t dlen);
+
 	// Inner use only
 	bool is_single_packet() const
 	{
@@ -191,6 +229,7 @@ protected:
 private:
 	int encode_reply();
 	int encode_truncation_reply();
+	struct list_head *get_section(int section);
 
 	// size of msgbuf, but in network byte order
 	uint16_t msgsize;
@@ -198,13 +237,8 @@ private:
 
 class DnsRequest : public DnsMessage
 {
-	static std::atomic<uint16_t> req_id_;
 public:
-	DnsRequest()
-	{
-		dns_parser_set_id(req_id_++, this->parser);
-	}
-
+	DnsRequest() = default;
 	DnsRequest(DnsRequest&& req) = default;
 	DnsRequest& operator = (DnsRequest&& req) = default;
 

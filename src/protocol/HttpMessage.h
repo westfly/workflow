@@ -19,6 +19,7 @@
 #ifndef _HTTPMESSAGE_H_
 #define _HTTPMESSAGE_H_
 
+#include <stdlib.h>
 #include <string.h>
 #include <utility>
 #include <string>
@@ -115,12 +116,17 @@ public:
 		return this->append_output_body_nocopy(buf, strlen(buf));
 	}
 
-	void clear_output_body();
-
 	size_t get_output_body_size() const
 	{
 		return this->output_body_size;
 	}
+
+	size_t get_output_body_blocks(const void *buf[], size_t size[],
+								  size_t max) const;
+
+	bool get_output_body_merged(void *buf, size_t *size) const;
+
+	void clear_output_body();
 
 	/* std::string interfaces */
 public:
@@ -164,6 +170,13 @@ public:
 	bool append_output_body_nocopy(const std::string& buf)
 	{
 		return this->append_output_body_nocopy(buf.c_str(), buf.size());
+	}
+
+	bool get_output_body_merged(std::string& body) const
+	{
+		size_t size = this->output_body_size;
+		body.resize(size);
+		return this->get_output_body_merged((void *)body.data(), &size);
 	}
 
 	/* for http task implementations. */
@@ -390,6 +403,43 @@ public:
 public:
 	HttpResponse(HttpResponse&& resp) = default;
 	HttpResponse& operator = (HttpResponse&& resp) = default;
+};
+
+class HttpMessageChunk : public ProtocolMessage
+{
+public:
+	bool get_chunk_data(const void **chunk_data, size_t *size) const;
+	bool move_chunk_data(void **chunk_data, size_t *size);
+	bool set_chunk_data(const void *chunk_data, size_t size);
+
+protected:
+	virtual int encode(struct iovec vectors[], int max);
+	virtual int append(const void *buf, size_t *size);
+
+private:
+	int append_chunk_line(const void *buf, size_t size);
+
+private:
+	char chunk_line[32];
+	void *chunk_data;
+	size_t chunk_size;
+	size_t nreceived;
+
+public:
+	HttpMessageChunk()
+	{
+		this->chunk_data = NULL;
+		this->nreceived = 0;
+	}
+
+	virtual ~HttpMessageChunk()
+	{
+		free(this->chunk_data);
+	}
+
+public:
+	HttpMessageChunk(HttpMessageChunk&& msg);
+	HttpMessageChunk& operator = (HttpMessageChunk&& msg);
 };
 
 }

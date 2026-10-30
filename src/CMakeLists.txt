@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.6)
+cmake_minimum_required(VERSION 3.10)
 
 if(ANDROID)
 	include_directories(${OPENSSL_INCLUDE_DIR})
@@ -10,18 +10,34 @@ endif ()
 include_directories(${OPENSSL_INCLUDE_DIR} ${INC_DIR}/workflow)
 
 if (KAFKA STREQUAL "y")
+	find_package(ZLIB REQUIRED)
+	include_directories(${ZLIB_INCLUDE_DIRS})
+
 	find_path(SNAPPY_INCLUDE_PATH NAMES snappy.h)
 	find_library(SNAPPY_LIB NAMES snappy)
 	if ((NOT SNAPPY_INCLUDE_PATH) OR (NOT SNAPPY_LIB))
 		message(FATAL_ERROR "Fail to find snappy with KAFKA=y")
 	endif ()
 	include_directories(${SNAPPY_INCLUDE_PATH})
+
+	find_path(ZSTD_INCLUDE_PATH NAMES zstd.h)
+	find_library(ZSTD_LIB NAMES zstd)
+	if ((NOT ZSTD_INCLUDE_PATH) OR (NOT ZSTD_LIB))
+		message(FATAL_ERROR "Fail to find zstd with KAFKA=y")
+	endif ()
+	include_directories(${ZSTD_INCLUDE_PATH})
+
+	find_path(LZ4_INCLUDE_PATH NAMES lz4.h)
+	find_library(LZ4_LIB NAMES lz4)
+	if ((NOT LZ4_INCLUDE_PATH) OR (NOT LZ4_LIB))
+		message(FATAL_ERROR "Fail to find lz4 with KAFKA=y")
+	endif ()
+	include_directories(${LZ4_INCLUDE_PATH})
 endif ()
 
 add_subdirectory(kernel)
 add_subdirectory(util)
 add_subdirectory(manager)
-add_subdirectory(algorithm)
 add_subdirectory(protocol)
 add_subdirectory(factory)
 add_subdirectory(nameservice)
@@ -31,7 +47,6 @@ add_subdirectory(client)
 add_dependencies(kernel LINK_HEADERS)
 add_dependencies(util LINK_HEADERS)
 add_dependencies(manager LINK_HEADERS)
-add_dependencies(algorithm LINK_HEADERS)
 add_dependencies(protocol LINK_HEADERS)
 add_dependencies(factory LINK_HEADERS)
 add_dependencies(nameservice LINK_HEADERS)
@@ -46,7 +61,6 @@ add_library(
 	$<TARGET_OBJECTS:kernel>
 	$<TARGET_OBJECTS:util>
 	$<TARGET_OBJECTS:manager>
-	$<TARGET_OBJECTS:algorithm>
 	$<TARGET_OBJECTS:protocol>
 	$<TARGET_OBJECTS:factory>
 	$<TARGET_OBJECTS:nameservice>
@@ -59,7 +73,6 @@ add_library(
 	$<TARGET_OBJECTS:kernel>
 	$<TARGET_OBJECTS:util>
 	$<TARGET_OBJECTS:manager>
-	$<TARGET_OBJECTS:algorithm>
 	$<TARGET_OBJECTS:protocol>
 	$<TARGET_OBJECTS:factory>
 	$<TARGET_OBJECTS:nameservice>
@@ -68,9 +81,11 @@ add_library(
 )
 
 if(ANDROID)
-	target_link_libraries(${SHARED_LIB_NAME} ssl crypto c)
+	target_link_libraries(${SHARED_LIB_NAME} PUBLIC ssl crypto c)
+	target_link_libraries(${STATIC_LIB_NAME} PUBLIC ssl crypto c)
 else()
-	target_link_libraries(${SHARED_LIB_NAME} OpenSSL::SSL OpenSSL::Crypto pthread)
+	target_link_libraries(${SHARED_LIB_NAME} PUBLIC OpenSSL::SSL OpenSSL::Crypto pthread)
+	target_link_libraries(${STATIC_LIB_NAME} PUBLIC OpenSSL::SSL OpenSSL::Crypto pthread)
 endif ()
 
 set_target_properties(${STATIC_LIB_NAME} PROPERTIES OUTPUT_NAME ${PROJECT_NAME})
@@ -90,6 +105,8 @@ if (KAFKA STREQUAL "y")
 		$<TARGET_OBJECTS:protocol_kafka>
 		$<TARGET_OBJECTS:factory_kafka>
 	)
+	target_link_libraries(${KAFKA_STATIC_LIB_NAME} PUBLIC
+				${STATIC_LIB_NAME} ZLIB::ZLIB ${LZ4_LIB} ${ZSTD_LIB} ${SNAPPY_LIB})
 	set_target_properties(${KAFKA_STATIC_LIB_NAME} PROPERTIES OUTPUT_NAME "wfkafka")
 
 	set(KAFKA_SHARED_LIB_NAME "wfkafka-shared")
@@ -100,11 +117,8 @@ if (KAFKA STREQUAL "y")
 		$<TARGET_OBJECTS:protocol_kafka>
 		$<TARGET_OBJECTS:factory_kafka>
 	)
-	if (APPLE)
-		target_link_libraries(${KAFKA_SHARED_LIB_NAME}
-							  workflow z lz4 zstd ${SNAPPY_LIB}
-							  OpenSSL::SSL OpenSSL::Crypto pthread)
-	endif ()
+	target_link_libraries(${KAFKA_SHARED_LIB_NAME} PUBLIC
+				${SHARED_LIB_NAME} ZLIB::ZLIB ${LZ4_LIB} ${ZSTD_LIB} ${SNAPPY_LIB})
 	set_target_properties(${KAFKA_SHARED_LIB_NAME} PROPERTIES OUTPUT_NAME "wfkafka" VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION_MAJOR})
 endif ()
 
@@ -133,3 +147,17 @@ if (KAFKA STREQUAL "y")
 	)
 endif ()
 
+target_include_directories(${STATIC_LIB_NAME} BEFORE PUBLIC
+	"$<BUILD_INTERFACE:${INC_DIR}>"
+	"$<INSTALL_INTERFACE:${INC_DIR}>")
+target_include_directories(${SHARED_LIB_NAME} BEFORE PUBLIC
+	"$<BUILD_INTERFACE:${INC_DIR}>"
+	"$<INSTALL_INTERFACE:${INC_DIR}>")
+if (KAFKA STREQUAL "y")
+	target_include_directories(${KAFKA_STATIC_LIB_NAME} BEFORE PUBLIC
+		"$<BUILD_INTERFACE:${INC_DIR}>"
+		"$<INSTALL_INTERFACE:${INC_DIR}>")
+	target_include_directories(${KAFKA_SHARED_LIB_NAME} BEFORE PUBLIC
+		"$<BUILD_INTERFACE:${INC_DIR}>"
+		"$<INSTALL_INTERFACE:${INC_DIR}>")
+endif ()

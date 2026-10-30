@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.6)
+cmake_minimum_required(VERSION 3.10)
 
 set(COMMON_KERNEL_HEADERS
 	src/kernel/CommRequest.h
@@ -32,9 +32,6 @@ else ()
 endif ()
 
 set(INCLUDE_HEADERS
-	src/algorithm/DnsRoutine.h
-	src/algorithm/MapReduce.h
-	src/algorithm/MapReduce.inl
 	src/protocol/ProtocolMessage.h
 	src/protocol/http_parser.h
 	src/protocol/HttpMessage.h
@@ -52,16 +49,20 @@ set(INCLUDE_HEADERS
 	src/protocol/mysql_byteorder.h
 	src/protocol/PackageWrapper.h
 	src/protocol/SSLWrapper.h
+	src/protocol/dns_types.h
 	src/protocol/dns_parser.h
 	src/protocol/DnsMessage.h
 	src/protocol/DnsUtil.h
+	src/protocol/TLVMessage.h
 	src/protocol/ConsulDataTypes.h
 	src/server/WFServer.h
 	src/server/WFDnsServer.h
 	src/server/WFHttpServer.h
 	src/server/WFRedisServer.h
 	src/server/WFMySQLServer.h
+	src/client/WFHttpChunkedClient.h
 	src/client/WFMySQLConnection.h
+	src/client/WFRedisSubscriber.h
 	src/client/WFConsulClient.h
 	src/client/WFDnsClient.h
 	src/manager/DnsCache.h
@@ -90,6 +91,8 @@ set(INCLUDE_HEADERS
 	src/factory/WFOperator.h
 	src/factory/WFResourcePool.h
 	src/factory/WFMessageQueue.h
+	src/factory/HttpTaskImpl.inl
+	src/factory/RedisTaskImpl.inl
 	src/nameservice/WFNameService.h
 	src/nameservice/WFDnsResolver.h
 	src/nameservice/WFServiceGovernance.h

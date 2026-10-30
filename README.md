@@ -5,7 +5,7 @@
 [![License](https://img.shields.io/badge/License-Apache%202.0-green.svg)](https://github.com/sogou/workflow/blob/master/LICENSE)
 [![Language](https://img.shields.io/badge/language-c++-red.svg)](https://en.cppreference.com/) 
 [![Platform](https://img.shields.io/badge/platform-linux%20%7C%20macos%20%7C%20windows-lightgrey.svg)](https://img.shields.io/badge/platform-linux%20%7C%20macos20%7C%20windows-lightgrey.svg)
-[![Build Status](https://img.shields.io/github/workflow/status/sogou/workflow/ci%20build)](https://github.com/sogou/workflow/actions?query=workflow%3A%22ci+build%22++)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/sogou/workflow/ci.yml?branch=master)](https://github.com/sogou/workflow/actions?query=workflow%3A%22ci+build%22++)
 
 As **Sogou\`s C++ server engine**, Sogou C++ Workflow supports almost all **back-end C++ online services** of Sogou, including all search services, cloud input method, online advertisements, etc., handling more than **10 billion** requests every day. This is an **enterprise-level programming engine** in light and elegant design which can satisfy most C++ back-end development requirements.
 
@@ -33,6 +33,7 @@ int main()
 ~~~
 
 * As a **multifunctional asynchronous client**, it currently supports `HTTP`, `Redis`, `MySQL` and `Kafka` protocols.
+  * ``MySQL`` protocol supports ``MariaDB``, ``TiDB`` as well.
 * To implement **client/server on user-defined protocol** and build your own **RPC system**.
   * [srpc](https://github.com/sogou/srpc) is based on it and it is an independent open source project, which supports srpc, brpc, trpc and thrift protocols.
 * To build **asynchronous workflow**; support common **series** and **parallel** structures, and also support any **DAG** structures.
@@ -43,16 +44,16 @@ int main()
   * This project has built-in **service governance** and **load balancing** features.
 * Wiki link : [PaaS Architecture](https://github.com/sogou/workflow/wiki)
 
-#### Compiling and running environment
+#### Compiling and Running Environment
 
 * This project supports `Linux`, `macOS`, `Windows`, `Android` and other operating systems.
   * `Windows` version is currently released as an independent [branch](https://github.com/sogou/workflow/tree/windows), using `iocp` to implement asynchronous networking. All user interfaces are consistent with the `Linux` version.
 * Supports all CPU platforms, including 32 or 64-bit `x86` processors, big-endian or little-endian `arm` processors, `loongson` processors.
-* Master branch requires SSL and `OpenSSL 1.1` or above is recommended. Fully compatible with BoringSSL. If you don't like SSL, you may checkout the [nossl](https://github.com/sogou/workflow/tree/nossl) branch. But still need to link `crypto` for `md5` and `sha1`.
+* Master branch requires `OpenSSL 1.1` or above, and BoringSSL is fully compatible. If you don't like SSL, you may checkout the [nossl](https://github.com/sogou/workflow/tree/nossl) branch.
 * Uses the `C++11` standard and therefore, it should be compiled with a compiler which supports `C++11`. Does not rely on `boost` or `asio`.
 * No other dependencies. However, if you need `Kafka` protocol, some compression libraries should be installed, including `lz4`, `zstd` and `snappy`.
 
-### Get started (Linux, macOS):
+### Get Started (Linux, macOS):
 ~~~sh
 git clone https://github.com/sogou/workflow
 cd workflow
@@ -61,7 +62,10 @@ cd tutorial
 make
 ~~~~
 
-### Get started (Debian Linux, ubuntu 22.04):
+#### With SRPC Tool (NEW!)：
+https://github.com/sogou/srpc/blob/master/tools/README.md
+
+#### With [apt-get](https://launchpad.net/ubuntu/+source/workflow) on Debian Linux, ubuntu:
 Sogou C++ Workflow has been packaged for Debian Linux and ubuntu 22.04.  
 To install the Workflow library for development purposes:
 ~~~~sh
@@ -72,6 +76,22 @@ To install the Workflow library for deployment:
 ~~~~sh
 sudo apt-get install libworkflow1
 ~~~~
+
+#### With [dnf](https://packages.fedoraproject.org/pkgs/workflow) on Fedora Linux:
+Sogou C++ Workflow has been packaged for Fedora Linux.  
+To install the Workflow library for development purposes:
+~~~~sh
+sudo dnf install workflow-devel
+~~~~
+
+To install the Workflow library for deployment:
+~~~~sh
+sudo dnf install workflow
+~~~~
+
+#### With xmake
+
+If you want to use xmake to build workflow, you can see [xmake build document](docs/en/xmake.md)
 
 # Tutorials
 
@@ -98,11 +118,13 @@ sudo apt-get install libworkflow1
   * [Http server with file IO：http\_file\_server](docs/en/tutorial-09-http_file_server.md)
 * User-defined protocol
   * [A simple user-defined protocol: client/server](docs/en/tutorial-10-user_defined_protocol.md)
-* Timing tasks and counting tasks
+  * [Use TLV message](docs/en/about-tlv-message.md)
+* Other important tasks/components
   * [About timer](docs/en/about-timer.md)
   * [About counter](docs/en/about-counter.md)
   * [About resource pool](docs/en/about-resource-pool.md)
   * [About module](docs/en/about-module.md)
+  * [About DAG](docs/en/tutorial-11-graph_task.md)
 * Service governance
   * [About service governance](docs/en/about-service-governance.md)
   * [More documents about upstream](docs/en/about-upstream.md)
@@ -112,9 +134,9 @@ sudo apt-get install libworkflow1
   * [Asynchronous MySQL client：mysql\_cli](docs/en/tutorial-12-mysql_cli.md)
   * [Asynchronous Kafka client: kafka\_cli](docs/en/tutorial-13-kafka_cli.md)
 
-#### Programming paradigm
+#### Programming Paradigm
 
-We believe that a typical back-end program=protocol+algorithm+workflow and should be developed completely independently.
+Program = Protocol + Algorithm + Workflow
 
 * Protocol
   * In most cases, users use built-in common network protocols, such as HTTP, Redis or various rpc.
@@ -129,35 +151,34 @@ We believe that a typical back-end program=protocol+algorithm+workflow and shoul
   * The typical workflow is a closed series-parallel graph. Complex business logic may be a non-closed DAG.
   * The workflow graph can be constructed directly or dynamically generated based on the results of each step. All tasks are executed asynchronously.
 
-Basic task, task factory and complex task
+Structured Concurrency and Task Abstraction
 
-* Our system contains six basic tasks: networking, file IO, CPU, GPU, timer, and counter.
-* All tasks are generated by the task factory and automatically recycled after callback.
-  * Server task is one kind of special networking task, generated by the framework which calls the task factory, and handed over to the user through the process function.
-* In most cases, the task generated by the user through the task factory is a complex task, which is transparent to the user.
+* Our system contains five basic tasks: communication, computation, file IO, timer, and counter.
+* All tasks are generated by the task factory, and users organize the concurrency structure by calling interfaces, such as series, parallel, DAG, etc.
+* In most cases, the tasks generated by the user through the task factory is a complex task which encapsulates multiple asynchronous processes, but it is transparent to the user.
   * For example, an HTTP request may include many asynchronous processes (DNS, redirection), but for user, it is just a networking task.
   * File sorting seems to be an algorithm, but it actually includes many complex interaction processes between file IO and CPU computation.
   * If you think of business logic as building circuits with well-designed electronic components, then each electronic component may be a complex circuit.
+  * The task abstraction mechanism greatly reduces the number of tasks users need to create and the depth of callbacks.
+* Any task runs in a **SeriesWork** and the tasks in the same SeriesWork shares the series context, which simplifies data transfer between asynchronous tasks.
 
-Asynchrony and encapsulation based on `C++11 std::function`
+Callback and Memory Reclamation Mechanism
 
-* Not based on user mode coroutines. Users need to know that they are writing asynchronous programs.
 * All calls are executed asynchronously, and there is almost no operation that occupies a thread.
-  * Although we also provide some facilities with semi-synchronous interfaces, they are not core features.
+* Explicit callback mechanism. Users are aware that they are writing asynchronous programs.
+* **A set of object lifecycle mechanisms greatly simplifies memory management for asynchronous programs.**
+  * The lifecycle of any task created by the framework is from creation until the callback function finishes running. There is no risk of leakage.
+    * If a task is created but the user does not want to run it, the user needs to release it through the `dismiss()` interface.
+  * Any data in the task, such as the response of the network request, will also be recycled with the task. At this time, the user can use `std::move()` to move the required data.
+  * The project doesn’t use `std::shared_ptr` to manage memory.
+
 * We try to avoid user's derivations, and encapsulate user behavior with `std::function` instead, including:
   * The callback of any task.
   * Any server's process. This conforms to the `FaaS` (Function as a Service) idea.
   * The realization of an algorithm is simply a `std::function`. But the algorithm can also be implemented by derivation.
+  * If used deeply, one will find that everything can be derived.
 
-Memory reclamation mechanism
-
-* Every task will be automatically reclaimed after the callback. If a task is created but a user does not want to run it, the user needs to release it through the dismiss method.
-* Any data in the task, such as the response of the network request, will also be recycled with the task. At this time, the user can use `std::move()` to move the required data.
-* SeriesWork and ParallelWork are two kinds of framework objects, which are also recycled after their callback.
-  * When a series is a branch of a parallel, it will be recycled after the callback of the parallel that it belongs to.
-* This project doesn’t use `std::shared_ptr` to manage memory.
-
-#### Any other questions?
+#### Any Other Questions?
 
 You may check the [FAQ](https://github.com/sogou/workflow/issues/406) and [issues](https://github.com/sogou/workflow/issues) list first to see if you can find the answer.
 

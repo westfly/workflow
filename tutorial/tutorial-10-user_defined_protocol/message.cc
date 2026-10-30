@@ -1,21 +1,3 @@
-/*
-  Copyright (c) 2020 Sogou, Inc.
-
-  Licensed under the Apache License, Version 2.0 (the "License");
-  you may not use this file except in compliance with the License.
-  You may obtain a copy of the License at
-
-	  http://www.apache.org/licenses/LICENSE-2.0
-
-  Unless required by applicable law or agreed to in writing, software
-  distributed under the License is distributed on an "AS IS" BASIS,
-  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-  See the License for the specific language governing permissions and
-  limitations under the License.
-
-  Author: Xie Han (xiehan@sogou-inc.com;63350856@qq.com)
-*/
-
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
@@ -55,6 +37,7 @@ int TutorialMessage::append(const void *buf, size_t size)
 			this->head_received += size;
 			return 0;
 		}
+		this->head_received += head_left;
 
 		memcpy(p, buf, head_left);
 		size -= head_left;
@@ -83,7 +66,8 @@ int TutorialMessage::append(const void *buf, size_t size)
 		return -1;
 	}
 
-	memcpy(this->body, buf, size);
+	memcpy(this->body + this->body_received, buf, size);
+	this->body_received += size;
 	if (size < body_left)
 		return 0;
 

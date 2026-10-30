@@ -19,7 +19,7 @@
 #ifndef _KAFKA_PARSER_H_
 #define _KAFKA_PARSER_H_
 
-#include <arpa/inet.h>
+#include <sys/uio.h>
 #include <stddef.h>
 #include <stdint.h>
 #include "list.h"
@@ -305,9 +305,6 @@ typedef struct __kafka_broker
 	int port;
 	char *host;
 	char *rack;
-	int to_addr;
-	struct sockaddr_storage addr;
-	socklen_t addrlen;
 	short error;
 	int status;
 } kafka_broker_t;

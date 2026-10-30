@@ -31,6 +31,8 @@ extern "C"
 
 mpoller_t *mpoller_create(const struct poller_params *params, size_t nthreads);
 int mpoller_start(mpoller_t *mpoller);
+void mpoller_set_callback(void (*callback)(struct poller_result *, void *),
+						  mpoller_t *mpoller);
 void mpoller_stop(mpoller_t *mpoller);
 void mpoller_destroy(mpoller_t *mpoller);
 
@@ -42,41 +44,47 @@ struct __mpoller
 {
 	void **nodes_buf;
 	unsigned int nthreads;
+	unsigned long acc;
 	poller_t *poller[1];
 };
 
 static inline int mpoller_add(const struct poller_data *data, int timeout,
 							  mpoller_t *mpoller)
 {
-	unsigned int index = (unsigned int)data->fd % mpoller->nthreads;
+	int index = (unsigned int)data->fd % mpoller->nthreads;
 	return poller_add(data, timeout, mpoller->poller[index]);
 }
 
 static inline int mpoller_del(int fd, mpoller_t *mpoller)
 {
-	unsigned int index = (unsigned int)fd % mpoller->nthreads;
+	int index = (unsigned int)fd % mpoller->nthreads;
 	return poller_del(fd, mpoller->poller[index]);
 }
 
 static inline int mpoller_mod(const struct poller_data *data, int timeout,
 							  mpoller_t *mpoller)
 {
-	unsigned int index = (unsigned int)data->fd % mpoller->nthreads;
+	int index = (unsigned int)data->fd % mpoller->nthreads;
 	return poller_mod(data, timeout, mpoller->poller[index]);
 }
 
 static inline int mpoller_set_timeout(int fd, int timeout, mpoller_t *mpoller)
 {
-	unsigned int index = (unsigned int)fd % mpoller->nthreads;
+	int index = (unsigned int)fd % mpoller->nthreads;
 	return poller_set_timeout(fd, timeout, mpoller->poller[index]);
 }
 
 static inline int mpoller_add_timer(const struct timespec *value, void *context,
+									void **timer, int *index,
 									mpoller_t *mpoller)
 {
-	static unsigned int n = 0;
-	unsigned int index = n++ % mpoller->nthreads;
-	return poller_add_timer(value, context, mpoller->poller[index]);
+	*index = __sync_fetch_and_add(&mpoller->acc, 1) % mpoller->nthreads;
+	return poller_add_timer(value, context, timer, mpoller->poller[*index]);
+}
+
+static inline int mpoller_del_timer(void *timer, int index, mpoller_t *mpoller)
+{
+	return poller_del_timer(timer, mpoller->poller[index]);
 }
 
 #endif

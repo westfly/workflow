@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.6)
+cmake_minimum_required(VERSION 3.10)
 project(protocol)
 
 set(SRC
@@ -10,6 +10,7 @@ set(SRC
 	http_parser.c
 	HttpMessage.cc
 	HttpUtil.cc
+	TLVMessage.cc
 )
 
 if (NOT MYSQL STREQUAL "n")
@@ -42,5 +43,4 @@ if (KAFKA STREQUAL "y")
 		KafkaResult.cc
 	)
 	add_library("protocol_kafka" OBJECT ${SRC})
-	set_property(SOURCE KafkaMessage.cc APPEND PROPERTY COMPILE_OPTIONS "-fno-rtti")
 endif ()

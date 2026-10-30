@@ -23,66 +23,12 @@
 #include <stdint.h>
 #include "list.h"
 
-enum
-{
-	DNS_TYPE_A = 1,
-	DNS_TYPE_NS,
-	DNS_TYPE_MD,
-	DNS_TYPE_MF,
-	DNS_TYPE_CNAME,
-	DNS_TYPE_SOA = 6,
-	DNS_TYPE_MB,
-	DNS_TYPE_MG,
-	DNS_TYPE_MR,
-	DNS_TYPE_NULL,
-	DNS_TYPE_WKS = 11,
-	DNS_TYPE_PTR,
-	DNS_TYPE_HINFO,
-	DNS_TYPE_MINFO,
-	DNS_TYPE_MX,
-	DNS_TYPE_TXT = 16,
-
-	DNS_TYPE_AAAA = 28,
-	DNS_TYPE_SRV = 33,
-
-	DNS_TYPE_AXFR = 252,
-	DNS_TYPE_MAILB = 253,
-	DNS_TYPE_MAILA = 254,
-	DNS_TYPE_ALL = 255
-};
-
-enum
-{
-	DNS_CLASS_IN = 1,
-	DNS_CLASS_CS,
-	DNS_CLASS_CH,
-	DNS_CLASS_HS,
-
-	DNS_CLASS_ALL = 255
-};
-
-enum
-{
-	DNS_OPCODE_QUERY = 0,
-	DNS_OPCODE_IQUERY,
-	DNS_OPCODE_STATUS,
-};
-
-enum
-{
-	DNS_RCODE_NO_ERROR = 0,
-	DNS_RCODE_FORMAT_ERROR,
-	DNS_RCODE_SERVER_FAILURE,
-	DNS_RCODE_NAME_ERROR,
-	DNS_RCODE_NOT_IMPLEMENTED,
-	DNS_RCODE_REFUSED
-};
-
 /**
  * dns_header_t is a struct to describe the header of a dns
  * request or response packet, but the byte order is not
  * transformed.
  */
+#pragma pack(1)
 struct dns_header
 {
 	uint16_t id;
@@ -112,6 +58,7 @@ struct dns_header
 	uint16_t nscount;
 	uint16_t arcount;
 };
+#pragma pack()
 
 struct dns_question
 {
@@ -204,6 +151,29 @@ int dns_record_cursor_next(struct dns_record **record,
 int dns_record_cursor_find_cname(const char *name,
 								 const char **cname,
 								 dns_record_cursor_t *cursor);
+
+int dns_add_raw_record(const char *name, uint16_t type, uint16_t rclass,
+					   uint32_t ttl, uint16_t rlen, const void *rdata,
+					   struct list_head *list);
+
+int dns_add_str_record(const char *name, uint16_t type, uint16_t rclass,
+					   uint32_t ttl, const char *rdata,
+					   struct list_head *list);
+
+int dns_add_soa_record(const char *name, uint16_t rclass, uint32_t ttl,
+					   const char *mname, const char *rname,
+					   uint32_t serial, int32_t refresh,
+					   int32_t retry, int32_t expire, uint32_t minimum,
+					   struct list_head *list);
+
+int dns_add_srv_record(const char *name, uint16_t rclass, uint32_t ttl,
+					   uint16_t priority, uint16_t weight,
+					   uint16_t port, const char *target,
+					   struct list_head *list);
+
+int dns_add_mx_record(const char *name, uint16_t rclass, uint32_t ttl,
+					  int16_t preference, const char *exchange,
+					  struct list_head *list);
 
 const char *dns_type2str(int type);
 const char *dns_class2str(int dnsclass);

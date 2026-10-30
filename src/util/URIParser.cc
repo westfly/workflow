@@ -245,11 +245,11 @@ int URIParser::parse(const char *str, ParsedURI& uri)
 {
 	uri.state = URI_STATE_INVALID;
 
-	int start_idx[URI_PART_ELEMENTS] = {0};
-	int end_idx[URI_PART_ELEMENTS] = {0};
-	int pre_state = URI_SCHEME;;
-	int i;
+	size_t start_idx[URI_PART_ELEMENTS] = {0};
+	size_t end_idx[URI_PART_ELEMENTS] = {0};
+	int pre_state = URI_SCHEME;
 	bool in_ipv6 = false;
+	size_t i;
 
 	for (i = 0; str[i]; i++)
 	{
@@ -268,7 +268,7 @@ int URIParser::parse(const char *str, ParsedURI& uri)
 		pre_state = URI_HOST;
 		i += 2;
 		if (str[i] == '[')
-			in_ipv6= true;
+			in_ipv6 = true;
 		else
 			start_idx[URI_USERINFO] = i;
 
@@ -341,6 +341,7 @@ int URIParser::parse(const char *str, ParsedURI& uri)
 			break;
 		}
 	}
+
 	if (pre_state != URI_PART_ELEMENTS)
 		end_idx[pre_state] = i;
 
@@ -369,12 +370,13 @@ int URIParser::parse(const char *str, ParsedURI& uri)
 				break;
 			}
 		}
+
 		end_idx[pre_state] = i + strlen(str + i);
 	}
 
 	for (int i = 0; i < URI_QUERY; i++)
 	{
-		for (int j = start_idx[i]; j < end_idx[i]; j++)
+		for (size_t j = start_idx[i]; j < end_idx[i]; j++)
 		{
 			if (!valid_char[i][(unsigned char)str[j]])
 				return -1;//invalid char
@@ -398,13 +400,15 @@ int URIParser::parse(const char *str, ParsedURI& uri)
 				return -1;
 			}
 
-			if (i == URI_HOST && str[start_idx[i]] == '[')
+			if (i == URI_HOST && str[start_idx[i]] == '[' &&
+				str[end_idx[i] - 1] == ']')
 			{
 				len -= 2;
 				memcpy(*dst[i], str + start_idx[i] + 1, len);
 			}
 			else
 				memcpy(*dst[i], str + start_idx[i], len);
+
 			(*dst[i])[len] = '\0';
 		}
 		else

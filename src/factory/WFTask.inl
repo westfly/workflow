@@ -47,7 +47,7 @@ class WFClientTask : public WFNetworkTask<REQ, RESP>
 protected:
 	virtual CommMessageOut *message_out()
 	{
-		/* By using prepare function, users can modify request after
+		/* By setting 'prepare' function, users can modify the request after
 		 * the connection is established. */
 		if (this->prepare)
 			this->prepare(this);
@@ -92,15 +92,6 @@ protected:
 	}
 
 public:
-	void set_prepare(std::function<void (WFNetworkTask<REQ, RESP> *)> prep)
-	{
-		this->prepare = std::move(prep);
-	}
-
-protected:
-	std::function<void (WFNetworkTask<REQ, RESP> *)> prepare;
-
-public:
 	WFClientTask(CommSchedObject *object, CommScheduler *scheduler,
 				 std::function<void (WFNetworkTask<REQ, RESP> *)>&& cb) :
 		WFNetworkTask<REQ, RESP>(object, scheduler, std::move(cb))
@@ -115,21 +106,26 @@ template<class REQ, class RESP>
 class WFServerTask : public WFNetworkTask<REQ, RESP>
 {
 protected:
-	virtual CommMessageOut *message_out() { return &this->resp; }
+	virtual CommMessageOut *message_out()
+	{
+		/* By setting 'prepare' function, users can modify the response before
+		 * replying to the client. */
+		if (this->prepare)
+			this->prepare(this);
+
+		return &this->resp;
+	}
+
 	virtual CommMessageIn *message_in() { return &this->req; }
 	virtual void handle(int state, int error);
 
 protected:
-	/* CommSession::get_connection() is supposed to be called only in the
-	 * implementations of it's virtual functions. As a server task, to call
-	 * this function after process() and before callback() is very dangerous
-	 * and should be blocked. */
 	virtual WFConnection *get_connection() const
 	{
-		if (this->processor.task)
+		if (this->processor.task == this)
 			return (WFConnection *)this->CommSession::get_connection();
 
-		errno = EPERM;
+		errno = this->processor.task ? ENOTCONN : EPERM;
 		return NULL;
 	}
 
@@ -138,16 +134,17 @@ protected:
 	{
 		if (this->state == WFT_STATE_TOREPLY)
 		{
-			/* Enable get_connection() again if the reply() call is success. */
 			this->processor.task = this;
 			if (this->scheduler->reply(this) >= 0)
 				return;
 
 			this->state = WFT_STATE_SYS_ERROR;
 			this->error = errno;
-			this->processor.task = NULL;
 		}
+		else
+			this->scheduler->shutdown(this);
 
+		this->processor.task = (WFServerTask *)-1;
 		this->subtask_done();
 	}
 
@@ -164,7 +161,7 @@ protected:
 		if (this->callback)
 			this->callback(this);
 
-		/* Defer deleting the task. */
+		this->processor.task = NULL;
 		return series->pop();
 	}
 
@@ -172,7 +169,7 @@ protected:
 	class Processor : public SubTask
 	{
 	public:
-		Processor(WFServerTask<REQ, RESP> *task,
+		Processor(WFServerTask *task,
 				  std::function<void (WFNetworkTask<REQ, RESP> *)>& proc) :
 			process(proc)
 		{
@@ -182,7 +179,7 @@ protected:
 		virtual void dispatch()
 		{
 			this->process(this->task);
-			this->task = NULL;	/* As a flag. get_conneciton() disabled. */
+			this->task = NULL;	/* As a flag, disable getting connection. */
 			this->subtask_done();
 		}
 
@@ -192,20 +189,13 @@ protected:
 		}
 
 		std::function<void (WFNetworkTask<REQ, RESP> *)>& process;
-		WFServerTask<REQ, RESP> *task;
+		WFServerTask *task;
 	} processor;
 
 	class Series : public SeriesWork
 	{
 	public:
-		virtual void cancel()
-		{
-			this->SeriesWork::cancel();
-			if (this->get_last_task() == this->task)
-				this->unset_last_task();
-		}
-
-		Series(WFServerTask<REQ, RESP> *task) :
+		Series(WFServerTask *task) :
 			SeriesWork(&task->processor, nullptr)
 		{
 			this->set_last_task(task);
@@ -217,7 +207,7 @@ protected:
 			delete this->task;
 		}
 
-		WFServerTask<REQ, RESP> *task;
+		WFServerTask *task;
 	};
 
 public:
@@ -229,7 +219,11 @@ public:
 	}
 
 protected:
-	virtual ~WFServerTask() { }
+	virtual ~WFServerTask()
+	{
+		if (this->target)
+			((Series *)series_of(&this->processor))->task = NULL;
+	}
 };
 
 template<class REQ, class RESP>

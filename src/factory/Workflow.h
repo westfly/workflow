@@ -108,8 +108,13 @@ public:
 	}
 
 public:
-	/* The next 3 functions are intended for task implementations only. */
+	virtual void *get_specific(const char *key) { return NULL; }
+
+public:
+	/* The following functions are intended for task implementations only. */
 	SubTask *pop();
+
+	SubTask *get_last_task() const { return this->last; }
 
 	void set_last_task(SubTask *last)
 	{
@@ -119,10 +124,10 @@ public:
 
 	void unset_last_task() { this->last = NULL; }
 
-protected:
-	SubTask *get_last_task() const { return this->last; }
+	const ParallelTask *get_in_parallel() const { return this->in_parallel; }
 
-	void set_in_parallel() { this->in_parallel = true; }
+protected:
+	void set_in_parallel(const ParallelTask *task) { this->in_parallel = task; }
 
 	void dismiss_recursive();
 
@@ -142,9 +147,9 @@ private:
 	int queue_size;
 	int front;
 	int back;
-	bool in_parallel;
 	bool canceled;
 	bool finished;
+	const ParallelTask *in_parallel;
 	std::mutex mutex;
 
 protected:
@@ -240,17 +245,28 @@ public:
 			return NULL;
 	}
 
-	SeriesWork& operator[] (size_t index)
-	{
-		return *this->series_at(index);
-	}
+	SeriesWork& operator[] (size_t index) { return *this->all_series[index]; }
 
 	const SeriesWork& operator[] (size_t index) const
 	{
-		return *this->series_at(index);
+		return *this->all_series[index];
 	}
 
 	size_t size() const { return this->subtasks_nr; }
+
+public:
+	SeriesWork *const *begin() { return this->all_series; }
+	SeriesWork *const *end() { return this->all_series + this->subtasks_nr; }
+
+	const SeriesWork *const *begin() const
+	{
+		return (const SeriesWork **)this->all_series;
+	}
+
+	const SeriesWork *const *end() const
+	{
+		return (const SeriesWork **)this->all_series + this->subtasks_nr;
+	}
 
 public:
 	void set_callback(parallel_callback_t callback)

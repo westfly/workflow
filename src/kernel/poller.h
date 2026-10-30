@@ -25,6 +25,7 @@
 #include <openssl/ssl.h>
 
 typedef struct __poller poller_t;
+typedef struct __poller_ssl poller_ssl_t;
 typedef struct __poller_message poller_message_t;
 
 struct __poller_message
@@ -35,25 +36,30 @@ struct __poller_message
 
 struct poller_data
 {
+#define PD_OP_TIMER			0
 #define PD_OP_READ			1
 #define PD_OP_WRITE			2
 #define PD_OP_LISTEN		3
 #define PD_OP_CONNECT		4
+#define PD_OP_RECVFROM		5
 #define PD_OP_SSL_READ		PD_OP_READ
 #define PD_OP_SSL_WRITE		PD_OP_WRITE
-#define PD_OP_SSL_ACCEPT	5
-#define PD_OP_SSL_CONNECT	6
-#define PD_OP_SSL_SHUTDOWN	7
-#define PD_OP_EVENT			8
-#define PD_OP_NOTIFY		9
-#define PD_OP_TIMER			10
+#define PD_OP_SSL_ACCEPT	6
+#define PD_OP_SSL_CONNECT	7
+#define PD_OP_SSL_SHUTDOWN	8
+#define PD_OP_EVENT			9
+#define PD_OP_NOTIFY		10
 	short operation;
 	unsigned short iovcnt;
 	int fd;
+	poller_ssl_t *ssl;
 	union
 	{
-		SSL *ssl;
+		poller_message_t *(*create_message)(void *);
+		int (*partial_written)(size_t, void *);
 		void *(*accept)(const struct sockaddr *, socklen_t, int, void *);
+		void *(*recvfrom)(const struct sockaddr *, socklen_t,
+						  const void *, size_t, void *);
 		void *(*event)(void *);
 		void *(*notify)(void *, void *);
 	};
@@ -83,8 +89,6 @@ struct poller_result
 struct poller_params
 {
 	size_t max_open_files;
-	poller_message_t *(*create_message)(void *);
-	int (*partial_written)(size_t, void *);
 	void (*callback)(struct poller_result *, void *);
 	void *context;
 };
@@ -100,14 +104,27 @@ int poller_add(const struct poller_data *data, int timeout, poller_t *poller);
 int poller_del(int fd, poller_t *poller);
 int poller_mod(const struct poller_data *data, int timeout, poller_t *poller);
 int poller_set_timeout(int fd, int timeout, poller_t *poller);
-int poller_add_timer(const struct timespec *value, void *context,
+int poller_add_timer(const struct timespec *value, void *context, void **timer,
 					 poller_t *poller);
+int poller_del_timer(void *timer, poller_t *poller);
+void poller_set_callback(void (*callback)(struct poller_result *, void *),
+						 poller_t *poller);
 void poller_stop(poller_t *poller);
 void poller_destroy(poller_t *poller);
+
+poller_ssl_t *poller_ssl_create(int fd, SSL_CTX *ctx);
+int poller_ssl_read(void *buf, int num, int *error, poller_ssl_t *ssl);
+int poller_ssl_write(const void *buf, int num, int *error, poller_ssl_t *ssl);
+void poller_ssl_destroy(poller_ssl_t *ssl);
 
 #ifdef __cplusplus
 }
 #endif
+
+static inline SSL *poller_ssl_get_SSL(poller_ssl_t *ssl)
+{
+	return *(SSL **)ssl;
+}
 
 #endif
 

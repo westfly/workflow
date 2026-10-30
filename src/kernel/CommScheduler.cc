@@ -142,17 +142,11 @@ CommTarget *CommSchedTarget::acquire(int wait_timeout)
 	return this;
 }
 
-void CommSchedTarget::release(int keep_alive)
+void CommSchedTarget::release()
 {
-	pthread_mutex_t *mutex = &this->mutex;
-
-	pthread_mutex_lock(mutex);
+	pthread_mutex_lock(&this->mutex);
 	if (this->group)
-	{
-		mutex = &this->group->mutex;
-		pthread_mutex_lock(mutex);
-		pthread_mutex_unlock(&this->mutex);
-	}
+		pthread_mutex_lock(&this->group->mutex);
 
 	this->cur_load--;
 	if (this->wait_cnt > 0)
@@ -164,10 +158,11 @@ void CommSchedTarget::release(int keep_alive)
 		if (this->wait_cnt == 0 && this->group->wait_cnt > 0)
 			pthread_cond_signal(&this->group->cond);
 
-		this->group->heap_adjust(this->index, keep_alive);
+		this->group->heap_adjust(this->index, this->has_idle_conn());
+		pthread_mutex_unlock(&this->group->mutex);
 	}
 
-	pthread_mutex_unlock(mutex);
+	pthread_mutex_unlock(&this->mutex);
 }
 
 int CommSchedGroup::target_cmp(CommSchedTarget *target1,
@@ -192,7 +187,7 @@ void CommSchedGroup::heap_adjust(int index, int swap_on_equal)
 	while (index > 0)
 	{
 		parent = this->tg_heap[(index - 1) / 2];
-		if (CommSchedGroup::target_cmp(target, parent) < !!swap_on_equal)
+		if (CommSchedGroup::target_cmp(target, parent) < swap_on_equal)
 		{
 			this->tg_heap[index] = parent;
 			parent->index = index;

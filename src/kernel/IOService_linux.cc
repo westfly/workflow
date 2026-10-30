@@ -235,7 +235,7 @@ void IOSession::prep_fsync(int fd)
 	iocb->aio_lio_opcode = IO_CMD_FSYNC;
 }
 
-void IOSession::prep_fdsync(int fd)
+void IOSession::prep_fdatasync(int fd)
 {
 	struct iocb *iocb = (struct iocb *)this->iocb_buf;
 
@@ -323,21 +323,18 @@ int IOService::request(IOSession *session)
 	int ret = -1;
 
 	pthread_mutex_lock(&this->mutex);
-	if (this->event_fd >= 0)
+	if (this->event_fd < 0)
+		errno = ENOENT;
+	else if (session->prepare() >= 0)
 	{
-		if (session->prepare() >= 0)
+		io_set_eventfd(iocb, this->event_fd);
+		iocb->data = session;
+		if (io_submit(this->io_ctx, 1, &iocb) > 0)
 		{
-			io_set_eventfd(iocb, this->event_fd);
-			iocb->data = session;
-			if (io_submit(this->io_ctx, 1, &iocb) > 0)
-			{
-				list_add_tail(&session->list, &this->session_list);
-				ret = 0;
-			}
+			list_add_tail(&session->list, &this->session_list);
+			ret = 0;
 		}
 	}
-	else
-		errno = ENOENT;
 
 	pthread_mutex_unlock(&this->mutex);
 	if (ret < 0)
